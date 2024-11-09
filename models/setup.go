@@ -1,21 +1,25 @@
 package models
 
 import (
-	"gorm.io/gorm"
-	"gorm.io/driver/mysql"
+    "gorm.io/driver/mysql"
+    "gorm.io/gorm"
+	"log"
+	
 )
 
 var DB *gorm.DB
 
 func ConnectDatabase() {
-	database, err := gorm.Open(mysql.Open("root:@tcp(localhost:3306)/powerpuff_reviewbarang"))
-	if err != nil {
-		panic(err)
-	}
+	dsn := "root:@tcp(localhost:3306)/powerpuff_reviewbarang?charset=utf8mb4&parseTime=True&loc=Local"
+    database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+    if err != nil {
+        log.Fatal("Failed to connect to database:", err)
+    }
+	DB = database
+	err = DB.AutoMigrate(&Product{}, &User{}, &Review{})
+    if err != nil {
+        log.Fatal("Failed to migrate database:", err)
+    }
+	
 
-		database.AutoMigrate(&Product{})
-		database.AutoMigrate(&User{})
-		database.AutoMigrate(&Review{})
-
-		DB = database
 }
