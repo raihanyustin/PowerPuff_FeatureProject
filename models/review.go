@@ -1,10 +1,10 @@
 package models
 
 type Review struct {
-	IdReview 			int64 `gorm:"primaryKey" json:"id_review"`
-	IdUser				int64 `gorm:"not null" json:"id_user"`
-	IdProduct			int64 `gorm:"not null" json:"id_product"`
-	ReviewProduk		string `gorm:"type:text" json:"ulasan"`
-	User 				User `gorm:"foreignKey:id_user"`
-	Product 			Product `gorm:"foreignKey:id_product"`
+    IdReview     int64   `gorm:"primaryKey;autoIncrement;type:BIGINT" json:"id_review"`
+    IdProduct    int64   `gorm:"not null" json:"id_product"`
+    IdUser       int64   `gorm:"not null" json:"id_user"`
+    ReviewProduk string  `gorm:"type:text" json:"ulasan"`
+    Product      Product `gorm:"foreignKey:IdProduct;references:IdProduct"`
+    User         User    `gorm:"foreignKey:IdUser;references:IdUser"`
 }
