@@ -1,10 +1,17 @@
 package models
 
+import "time"
+
 type Review struct {
-    IdReview     int64   `gorm:"primaryKey;autoIncrement;type:BIGINT" json:"id_review"`
-    IdProduct    int64   `gorm:"not null" json:"id_product"`
-    IdUser       int64   `gorm:"not null" json:"id_user"`
-    ReviewProduk string  `gorm:"type:text" json:"ulasan"`
-    Product      Product `gorm:"foreignKey:IdProduct;references:IdProduct"`
-    User         User    `gorm:"foreignKey:IdUser;references:IdUser"`
+    ID            int       `json:"id" gorm:"primaryKey;autoIncrement"`
+    UsernameID    int       `json:"username_id"`
+    Username      string    `json:"username"`
+    IsAnonymous   bool      `json:"is_anonymous"`
+    ProductID     int       `json:"product_id"`
+    ProductName   string    `json:"product_name"`
+    Category      string    `json:"category"`
+    Rating        int       `json:"rating"`
+    TextReview    string    `json:"text_review"`
+    Likes         int       `json:"likes"`
+    CreatedAt     time.Time `json:"created_at" gorm:"default:CURRENT_TIMESTAMP"`
 }
