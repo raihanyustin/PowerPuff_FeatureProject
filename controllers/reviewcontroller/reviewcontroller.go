@@ -1,14 +1,26 @@
 package reviewcontroller
 
 import (
-	"net/http"
 	"PowerPuff_ReviewBarang/models"
-	"gorm.io/gorm"
+	"net/http"
+	"strconv"
 	"github.com/gin-gonic/gin"
-    "strconv"
+	"gorm.io/gorm"
 )
 
-// Struktur Stack untuk menyimpan ulasan
+// Fungsi untuk membuat ulasan baru
+func Create(c *gin.Context) {
+	var review models.Review
+
+	if err := c.ShouldBindJSON(&review); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Data tidak valid", "error": err.Error()})
+		return
+	}
+
+	models.DB.Create(&review)
+	c.JSON(http.StatusOK, gin.H{"message": "Review berhasil dibuat", "review": review})
+}
+
 type Stack []models.Review
 
 func (s *Stack) Push(review models.Review) {
@@ -17,6 +29,18 @@ func (s *Stack) Push(review models.Review) {
 
 // Variabel global untuk stack
 var reviewStack = make(Stack, 0)
+
+func PushToStack(c *gin.Context) {
+	var review models.Review
+	if err := c.ShouldBindJSON(&review); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Data tidak valid", "error": err.Error()})
+		return
+	}
+	reviewStack.Push(review)
+	models.DB.Create(&review)
+	c.JSON(http.StatusOK, gin.H{"message": "Review berhasil dibuat", "review": review})
+}
+
 func (s *Stack) Peek() (models.Review, bool) {
 	if len(*s) == 0 {
 		return models.Review{}, false
@@ -24,38 +48,22 @@ func (s *Stack) Peek() (models.Review, bool) {
 	return (*s)[len(*s)-1], true
 }
 
-// Fungsi untuk menambahkan data ke stack
-func PushToStack(c *gin.Context) {
-	var review models.Review
-	if err := c.ShouldBindJSON(&review); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Data tidak valid", "error": err.Error()})
-		return
-	}
-    
-	reviewStack.Push(review)
-	c.JSON(http.StatusOK, gin.H{"message": "Ulasan berhasil ditambahkan ke stack", "review": review})
-    
-    models.DB.Create(&review)       
-    c.JSON(http.StatusOK, gin.H{"review": review})
-}
-
+// Fungsi untuk melihat data terakhir di stack
 func PeekStack(c *gin.Context) {
+    models.DB.Find(&reviewStack)
 	review, ok := reviewStack.Peek()
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Stack kosong"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Ulasan teratas di stack", "review":review})
+	c.JSON(http.StatusOK, gin.H{"message": "Ulasan teratas di stack", "review": review})
 }
 
+// Fungsi untuk menampilkan semua ulasan
 func Index(c *gin.Context) {
-
 	var reviews []models.Review
-
 	models.DB.Find(&reviews)
 	c.JSON(http.StatusOK, gin.H{"reviews": reviews})
-
 }
 
 // Fungsi untuk menampilkan semua ulasan berdasarkan stack (Last in FIrst Out)
@@ -78,54 +86,29 @@ func GetAllFromStack(c *gin.Context) {
     })
 }
 
-
+// Fungsi untuk menampilkan ulasan berdasarkan nama produk
 func Show(c *gin.Context) {
-    var reviews []models.Review
-    productName := c.Param("ProductName")
+	var reviews []models.Review
+	productName := c.Param("ProductName")
 
-    // Query berdasarkan ProductName
-    if err := models.DB.Debug().Where("product_name = ?", productName).Find(&reviews).Error; err != nil {
-        if err == gorm.ErrRecordNotFound {
-            c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan"})
-            return
-        }
-        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-        return
-    }
+	if err := models.DB.Where("product_name = ?", productName).Find(&reviews).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error saat mengambil data", "error": err.Error()})
+		return
+	}
 
-    // Jika tidak ada hasil
-    if len(reviews) == 0 {
-        c.JSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan"})
-        return
-    }
+	if len(reviews) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Data tidak ditemukan"})
+		return
+	}
 
-    // Kembalikan hasil dalam format JSON
-    c.JSON(http.StatusOK, gin.H{"reviews": reviews})
+	c.JSON(http.StatusOK, gin.H{"reviews": reviews})
 }
 
-func Update(c *gin.Context) {
-    var review models.Review
-    id := c.Param("ID")
-
-    // Bind JSON ke struct review
-    if err := c.ShouldBindJSON(&review); err != nil {
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-        return
-    }
-
-    result := models.DB.Model(&models.Review{}).Where("id = ?", id).Updates(review)
-    if result.Error != nil {
-        c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
-        return
-    }
-    if result.RowsAffected == 0 {
-        c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "tidak dapat mengupdate review"})
-        return
-    }
-
-    c.JSON(http.StatusOK, gin.H{"message": "Data berhasil diperbarui"})
-}
-
+// Fungsi untuk mencari ulasan berdasarkan nama produk dan rating
 func SearchByProductAndRating(c *gin.Context) {
 	namaProduk := c.DefaultQuery("product_name", "")
 	rating := c.DefaultQuery("rating", "")
@@ -154,4 +137,28 @@ func SearchByProductAndRating(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"reviews": ulasan})
+}
+
+// Fungsi untuk memperbarui data ulasan
+func Update(c *gin.Context) {
+	var review models.Review
+	id := c.Param("ID")
+
+	if err := c.ShouldBindJSON(&review); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Data tidak valid", "error": err.Error()})
+		return
+	}
+
+	result := models.DB.Model(&models.Review{}).Where("id = ?", id).Updates(review)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error saat memperbarui data", "error": result.Error.Error()})
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Tidak ada data yang diperbarui"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Data berhasil diperbarui"})
 }
